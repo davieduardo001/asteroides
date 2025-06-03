@@ -62,6 +62,8 @@ class Player(pygame.sprite.Sprite):
         self.vy = 0.0
         self.max_speed = 6.0
         self.drag = 0.99 # Higher value = less drag
+        self.last_shot_time = 0 # For potential fire rate control
+        self.shoot_delay = 250 # Milliseconds between shots (optional, can be adjusted)
 
     def update(self):
         keystate = pygame.key.get_pressed()
@@ -111,6 +113,23 @@ class Player(pygame.sprite.Sprite):
         if self.rect.bottom < 0:
             self.rect.top = SCREEN_HEIGHT
 
+    def shoot(self):
+        # Optional: Implement a fire rate limit
+        # current_time = pygame.time.get_ticks()
+        # if current_time - self.last_shot_time > self.shoot_delay:
+        #     self.last_shot_time = current_time
+        angle_rad = math.radians(self.angle)
+        # Calculate bullet starting position (tip of the spaceship)
+        # Offset from center to the tip of the ship (approx. half the ship's height)
+        # Assuming original_image height is a good proxy for ship length
+        ship_length = self.original_image.get_height() / 2
+        start_x = self.rect.centerx + ship_length * math.sin(-angle_rad)
+        start_y = self.rect.centery + ship_length * -math.cos(-angle_rad)
+        
+        bullet = Bullet(start_x, start_y, self.angle)
+        return bullet
+        # return None # If fire rate limit is active and not met
+
 # --- Asteroid Class ---
 class Asteroid(pygame.sprite.Sprite):
     def __init__(self):
@@ -138,6 +157,32 @@ class Asteroid(pygame.sprite.Sprite):
         if self.rect.bottom < 0:
             self.rect.top = SCREEN_HEIGHT
 
+# --- Bullet Class ---
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, x, y, angle):
+        super().__init__()
+        self.image = pygame.Surface([4, 10]) # Small rectangle for bullet
+        self.image.fill(WHITE)
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.speed = 10
+        
+        # Rotate bullet image to match firing angle (optional, simple rect might be fine)
+        # For simplicity, we'll keep the bullet as a non-rotated rectangle for now.
+        # If rotation is desired, it's similar to player rotation but done once at creation.
+
+        angle_rad = math.radians(angle)
+        self.vx = self.speed * math.sin(-angle_rad)
+        self.vy = self.speed * -math.cos(-angle_rad)
+
+    def update(self):
+        self.rect.x += self.vx
+        self.rect.y += self.vy
+
+        # Remove bullet if it goes off screen
+        if not screen.get_rect().colliderect(self.rect):
+            self.kill()
+
 # --- Game Variables (to be expanded) ---
 score = 0
 game_paused = False
@@ -160,7 +205,8 @@ def game_loop():
 
     player = Player()
     all_sprites = pygame.sprite.Group()
-    asteroids_group = pygame.sprite.Group()
+    asteroids_group = pygame.sprite.Group() # Asteroids currently disabled
+    bullets_group = pygame.sprite.Group()
     all_sprites.add(player)
 
 
@@ -176,13 +222,18 @@ def game_loop():
                     global game_paused
                     game_paused = not game_paused
                     print(f"Game Paused: {game_paused}")
+                if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                    bullet = player.shoot()
+                    if bullet:
+                        all_sprites.add(bullet)
+                        bullets_group.add(bullet)
 
         if not game_paused:
             # --- Game Logic (to be added) ---
             # Star movement logic removed as we are using a static background image now
             
             # Update all sprites (player)
-            all_sprites.update()
+            all_sprites.update() # This will call update on player and bullets
             # asteroids_group.update() # Asteroid updates disabled
 
             # Spawn new asteroids (disabled)
