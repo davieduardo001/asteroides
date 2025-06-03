@@ -2,6 +2,8 @@ import pygame
 import sys
 import random
 import math
+import threading
+import queue
 
 # Initialize Pygame
 pygame.init()
@@ -33,13 +35,49 @@ except pygame.error as e:
     print(f"Error loading background image: {e}")
     background_image = None # Fallback if image loading fails
 
+# Threading setup for input
+input_queue = queue.Queue()
+shared_input_state = {
+    'rotate_left': False,
+    'rotate_right': False,
+    'thrust_on': False,
+    'shoot_request': False
+}
+input_lock = threading.Lock()
+stop_input_thread_event = threading.Event()
+
+# Input Processing Thread Function
+def input_processing_thread_func():
+    print("Input processing thread started.")
+    while not stop_input_thread_event.is_set():
+        try:
+            command, key_state = input_queue.get(timeout=0.1) # Timeout to allow checking stop_event
+            with input_lock:
+                if command == 'rotate_left':
+                    shared_input_state['rotate_left'] = key_state
+                elif command == 'rotate_right':
+                    shared_input_state['rotate_right'] = key_state
+                elif command == 'thrust_on':
+                    shared_input_state['thrust_on'] = key_state
+                elif command == 'shoot_request': # This is an event, not a continuous state
+                    if key_state: # True on KEYDOWN
+                        shared_input_state['shoot_request'] = True 
+                    # No 'else' needed as shoot_request is reset by Player.update()
+            input_queue.task_done()
+        except queue.Empty:
+            continue # No input, loop back and check stop_event
+        except Exception as e:
+            print(f"Error in input thread: {e}") # Basic error handling
+            break # Exit thread on unexpected error
+    print("Input processing thread stopped.")
+
 # Game clock
 clock = pygame.time.Clock()
 FPS = 60
 
 # --- Player Class ---
 class Player(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, all_sprites_ref, bullets_group_ref):
         super().__init__()
         try:
             loaded_image = pygame.image.load('static/images/spaceship.png').convert_alpha()
@@ -65,13 +103,23 @@ class Player(pygame.sprite.Sprite):
         self.last_shot_time = 0 # For potential fire rate control
         self.shoot_delay = 250 # Milliseconds between shots (optional, can be adjusted)
 
+        self.all_sprites_ref = all_sprites_ref
+        self.bullets_group_ref = bullets_group_ref
+
     def update(self):
-        keystate = pygame.key.get_pressed()
+        # Read shared input state
+        with input_lock:
+            is_rotating_left = shared_input_state['rotate_left']
+            is_rotating_right = shared_input_state['rotate_right']
+            is_thrusting = shared_input_state['thrust_on']
+            wants_to_shoot = shared_input_state['shoot_request']
+            if wants_to_shoot:
+                shared_input_state['shoot_request'] = False # Reset the request
         
         # Rotation
-        if keystate[pygame.K_LEFT]:
+        if is_rotating_left:
             self.angle += self.rotation_speed
-        if keystate[pygame.K_RIGHT]:
+        if is_rotating_right:
             self.angle -= self.rotation_speed
         self.angle %= 360 # Keep angle between 0 and 360
 
@@ -80,13 +128,20 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=self.rect.center) # Update rect center after rotation
 
         # Thrust
-        if keystate[pygame.K_UP]:
+        if is_thrusting:
             # Angle 0 is UP. Positive angle rotates CCW.
             # Thrust vector components:
             # dx = sin(-angle_rad), dy = -cos(-angle_rad)
             angle_rad = math.radians(self.angle)
             self.vx += self.thrust_power * math.sin(-angle_rad) 
             self.vy += self.thrust_power * -math.cos(-angle_rad)
+
+        # Handle shooting
+        if wants_to_shoot:
+            bullet = self.shoot() # shoot method already exists
+            if bullet:
+                self.all_sprites_ref.add(bullet)
+                self.bullets_group_ref.add(bullet)
             
         # Apply drag
         self.vx *= self.drag
@@ -203,11 +258,18 @@ def game_loop():
     running = True
     global score # Allow modification of global score
 
-    player = Player()
+    # Initialize sprite groups first
     all_sprites = pygame.sprite.Group()
     asteroids_group = pygame.sprite.Group() # Asteroids currently disabled
     bullets_group = pygame.sprite.Group()
+
+    # Create player instance, passing sprite group references
+    player = Player(all_sprites, bullets_group)
     all_sprites.add(player)
+
+    # Start the input processing thread
+    input_thread = threading.Thread(target=input_processing_thread_func, daemon=True)
+    input_thread.start()
 
 
 
@@ -218,15 +280,28 @@ def game_loop():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False # Quit on ESC
-                if event.key == pygame.K_p: # Placeholder for pause
+                elif event.key == pygame.K_p: # Placeholder for pause
                     global game_paused
                     game_paused = not game_paused
                     print(f"Game Paused: {game_paused}")
-                if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
-                    bullet = player.shoot()
-                    if bullet:
-                        all_sprites.add(bullet)
-                        bullets_group.add(bullet)
+                # Player input commands to queue
+                elif event.key == pygame.K_LEFT:
+                    input_queue.put(('rotate_left', True))
+                elif event.key == pygame.K_RIGHT:
+                    input_queue.put(('rotate_right', True))
+                elif event.key == pygame.K_UP:
+                    input_queue.put(('thrust_on', True))
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                    input_queue.put(('shoot_request', True))
+            
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_LEFT:
+                    input_queue.put(('rotate_left', False))
+                elif event.key == pygame.K_RIGHT:
+                    input_queue.put(('rotate_right', False))
+                elif event.key == pygame.K_UP:
+                    input_queue.put(('thrust_on', False))
+                # No KEYUP for shoot_request as it's a single event
 
         if not game_paused:
             # --- Game Logic (to be added) ---
@@ -293,6 +368,13 @@ def game_loop():
         pygame.display.flip() # Update the full screen
 
         clock.tick(FPS) # Cap the frame rate
+
+    # Signal the input thread to stop and wait for it to finish
+    print("Main loop ending. Signaling input thread to stop.")
+    stop_input_thread_event.set()
+    input_queue.join() # Wait for all items in the queue to be processed
+    input_thread.join()
+    print("Input thread joined. Exiting game.")
 
     pygame.quit()
     sys.exit()
