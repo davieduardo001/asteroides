@@ -10,6 +10,8 @@ Este é um jogo de Asteroides clássico desenvolvido em Python usando a bibliote
 - **Loop de Tela (Screen Wrapping):** Tanto a nave do jogador quanto os asteroides reaparecem no lado oposto da tela ao saírem dos limites.
 - **Gráficos:** Utiliza imagens customizadas para o fundo do jogo e para a nave do jogador, com fallback para formas simples caso as imagens não carreguem.
 - **Asteroides (Temporariamente Desabilitados):** O jogo inclui uma classe para asteroides que aparecem em tamanhos e velocidades aleatórias, movendo-se pela tela. Esta funcionalidade está temporariamente desabilitada para focar em outros aspectos do desenvolvimento.
+- Disparo
+- Futuro criação de asteroides
 
 ## Como Jogar (Controles)
 
