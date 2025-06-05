@@ -3,7 +3,10 @@ import sys
 import random
 import math
 import threading
-import queue
+import queue # Keep queue for now, might be needed by other parts if game expands
+from src.input_handler import input_queue, shared_input_state, input_lock, stop_input_thread_event, input_processing_thread_func
+from src.game_entities import Asteroid as GameEntityAsteroid # Alias to avoid confusion if any local 'Asteroid' var exists
+
 
 # Initialize Pygame
 pygame.init()
@@ -35,41 +38,8 @@ except pygame.error as e:
     print(f"Error loading background image: {e}")
     background_image = None # Fallback if image loading fails
 
-# Threading setup for input
-input_queue = queue.Queue()
-shared_input_state = {
-    'rotate_left': False,
-    'rotate_right': False,
-    'thrust_on': False,
-    'shoot_request': False
-}
-input_lock = threading.Lock()
-stop_input_thread_event = threading.Event()
-
-# Input Processing Thread Function
-def input_processing_thread_func():
-    print("Input processing thread started.")
-    while not stop_input_thread_event.is_set():
-        try:
-            command, key_state = input_queue.get(timeout=0.1) # Timeout to allow checking stop_event
-            with input_lock:
-                if command == 'rotate_left':
-                    shared_input_state['rotate_left'] = key_state
-                elif command == 'rotate_right':
-                    shared_input_state['rotate_right'] = key_state
-                elif command == 'thrust_on':
-                    shared_input_state['thrust_on'] = key_state
-                elif command == 'shoot_request': # This is an event, not a continuous state
-                    if key_state: # True on KEYDOWN
-                        shared_input_state['shoot_request'] = True 
-                    # No 'else' needed as shoot_request is reset by Player.update()
-            input_queue.task_done()
-        except queue.Empty:
-            continue # No input, loop back and check stop_event
-        except Exception as e:
-            print(f"Error in input thread: {e}") # Basic error handling
-            break # Exit thread on unexpected error
-    print("Input processing thread stopped.")
+# Asteroid control semaphore
+asteroid_semaphore = threading.Semaphore(4)
 
 # Game clock
 clock = pygame.time.Clock()
@@ -185,33 +155,6 @@ class Player(pygame.sprite.Sprite):
         return bullet
         # return None # If fire rate limit is active and not met
 
-# --- Asteroid Class ---
-class Asteroid(pygame.sprite.Sprite):
-    def __init__(self):
-        super().__init__()
-        self.size = random.randint(30, 70) # Increased random size for asteroid
-        self.image = pygame.Surface([self.size, self.size], pygame.SRCALPHA)
-        pygame.draw.circle(self.image, GREY, (self.size // 2, self.size // 2), self.size // 2)
-        self.rect = self.image.get_rect()
-        self.rect.x = random.randrange(0, SCREEN_WIDTH - self.rect.width)
-        self.rect.y = random.randrange(-150, -50) # Start above the screen
-        self.speed_y = random.randint(1, 3) # Adjusted speed slightly for larger asteroids
-        self.speed_x = random.randint(-1, 1) # Slight horizontal drift
-
-    def update(self):
-        self.rect.y += self.speed_y
-        self.rect.x += self.speed_x
-
-        # Screen wrapping logic
-        if self.rect.left > SCREEN_WIDTH:
-            self.rect.right = 0
-        if self.rect.right < 0:
-            self.rect.left = SCREEN_WIDTH
-        if self.rect.top > SCREEN_HEIGHT:
-            self.rect.bottom = 0
-        if self.rect.bottom < 0:
-            self.rect.top = SCREEN_HEIGHT
-
 # --- Bullet Class ---
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y, angle):
@@ -241,8 +184,8 @@ class Bullet(pygame.sprite.Sprite):
 # --- Game Variables (to be expanded) ---
 score = 0
 game_paused = False
-# asteroid_spawn_timer = 0 # Asteroid spawning disabled
-# ASTEROID_SPAWN_RATE = 60 # Asteroid spawning disabled
+asteroid_spawn_timer = 0
+ASTEROID_SPAWN_RATE = 60 # Spawn a new asteroid (if space available) every second at 60 FPS
 
 
 
@@ -270,6 +213,22 @@ def game_loop():
     # Start the input processing thread
     input_thread = threading.Thread(target=input_processing_thread_func, daemon=True)
     input_thread.start()
+
+    # Initial asteroid spawning - using new GameEntityAsteroid
+    for _ in range(4):
+        if asteroid_semaphore.acquire(blocking=False):
+            start_x = random.randrange(0, SCREEN_WIDTH)
+            start_y = random.randrange(-150, -50) # Start above screen
+            new_asteroid = GameEntityAsteroid(position=(start_x, start_y), size_type='LG', 
+                                              all_sprites_ref=all_sprites, asteroids_group_ref=asteroids_group, 
+                                              asteroid_semaphore_ref=asteroid_semaphore, 
+                                              screen_width=SCREEN_WIDTH, screen_height=SCREEN_HEIGHT)
+            all_sprites.add(new_asteroid)
+            asteroids_group.add(new_asteroid)
+            # print(f"Initial LG asteroid spawned. Semaphore count: {asteroid_semaphore._value}") # Debug
+        else:
+            print("Error: Could not acquire semaphore for initial LG asteroid spawn.")
+            break # Stop trying if semaphore is unexpectedly unavailable
 
 
 
@@ -307,18 +266,31 @@ def game_loop():
             # --- Game Logic (to be added) ---
             # Star movement logic removed as we are using a static background image now
             
-            # Update all sprites (player)
-            all_sprites.update() # This will call update on player and bullets
-            # asteroids_group.update() # Asteroid updates disabled
+            # Update all sprites (player, bullets, asteroids)
+            all_sprites.update() 
+            # asteroids_group.update() is implicitly called by all_sprites.update() if asteroids are in all_sprites
 
-            # Spawn new asteroids (disabled)
-            # global asteroid_spawn_timer
-            # asteroid_spawn_timer += 1
-            # if asteroid_spawn_timer >= ASTEROID_SPAWN_RATE:
-            #     asteroid_spawn_timer = 0
-            #     new_asteroid = Asteroid()
-            #     all_sprites.add(new_asteroid)
-            #     asteroids_group.add(new_asteroid)
+            # Spawn new asteroids periodically
+            global asteroid_spawn_timer
+            asteroid_spawn_timer += 1
+            if asteroid_spawn_timer >= ASTEROID_SPAWN_RATE:
+                asteroid_spawn_timer = 0
+                if asteroid_semaphore.acquire(blocking=False):
+                    start_x = random.choice([random.randrange(-100, -50), random.randrange(SCREEN_WIDTH + 50, SCREEN_WIDTH + 100)])
+                    start_y = random.randrange(0, SCREEN_HEIGHT)
+                    # Alternate starting from top/bottom if preferred for periodic spawns
+                    # start_x = random.randrange(0, SCREEN_WIDTH)
+                    # start_y = random.choice([random.randrange(-100, -50), random.randrange(SCREEN_HEIGHT + 50, SCREEN_HEIGHT + 100)])
+                    
+                    new_asteroid = GameEntityAsteroid(position=(start_x, start_y), size_type='LG', 
+                                                      all_sprites_ref=all_sprites, asteroids_group_ref=asteroids_group, 
+                                                      asteroid_semaphore_ref=asteroid_semaphore, 
+                                                      screen_width=SCREEN_WIDTH, screen_height=SCREEN_HEIGHT)
+                    all_sprites.add(new_asteroid)
+                    asteroids_group.add(new_asteroid)
+                    # print(f"Periodic LG asteroid spawned. Semaphore count: {asteroid_semaphore._value}") # Debug
+                # else:
+                    # print(f"Max asteroids (LG) reached, not spawning. Semaphore count: {asteroid_semaphore._value}") # Debug
 
 
         # --- Drawing ---
