@@ -81,13 +81,13 @@ class Player(pygame.sprite.Sprite):
         super().__init__()
         try:
             loaded_image = pygame.image.load('static/images/spaceship.png').convert_alpha()
-            desired_width = 50 # Adjusted size for better rotation appearance
-            desired_height = 60 
+            desired_width = 65 # Increased size
+            desired_height = 78 # Increased size
             self.original_image = pygame.transform.scale(loaded_image, (desired_width, desired_height))
         except pygame.error as e:
             print(f"Error loading player image: {e}. Using fallback shape.")
-            self.original_image = pygame.Surface([40, 50], pygame.SRCALPHA)
-            pygame.draw.polygon(self.original_image, WHITE, [(20, 0), (0, 50), (40, 50)]) # Adjusted fallback shape
+            self.original_image = pygame.Surface([52, 65], pygame.SRCALPHA) # Adjusted fallback size
+            pygame.draw.polygon(self.original_image, WHITE, [(26, 0), (0, 65), (52, 65)]) # Adjusted fallback shape
         
         self.image = self.original_image.copy()
         self.rect = self.image.get_rect()
@@ -291,7 +291,7 @@ def game_loop():
                     input_queue.put(('rotate_right', True))
                 elif event.key == pygame.K_UP:
                     input_queue.put(('thrust_on', True))
-                elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                elif event.key == pygame.K_SPACE:
                     input_queue.put(('shoot_request', True))
             
             elif event.type == pygame.KEYUP:
@@ -322,10 +322,11 @@ def game_loop():
 
 
         # --- Drawing ---
-        if background_image:
-            screen.blit(background_image, (0,0))
-        else:
-            screen.fill(DARK_BLUE) # Fallback background color
+        screen.fill(BLACK) # Set background to black
+        # if background_image:
+        #     screen.blit(background_image, (0,0))
+        # else:
+        #     screen.fill(DARK_BLUE) # Fallback background color
 
         # Star drawing logic removed
 
