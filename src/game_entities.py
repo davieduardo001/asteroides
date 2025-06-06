@@ -88,7 +88,8 @@ class Asteroid(pygame.sprite.Sprite):
             if self.size_type == 'LG':
                 self._spawn_children('MD', 2) # Spawn 2 medium asteroids
             elif self.size_type == 'MD':
-                self._spawn_children('SM', 2) # Spawn 2 small asteroids
+                self._spawn_children('SM', 4) # Spawn 4 small asteroids
+            # SM asteroids do not spawn children
         
         self.kill() # Remove from sprite groups
         self.asteroid_semaphore_ref.release()

@@ -39,7 +39,7 @@ except pygame.error as e:
     background_image = None # Fallback if image loading fails
 
 # Asteroid control semaphore
-asteroid_semaphore = threading.Semaphore(4)
+asteroid_semaphore = threading.Semaphore(15) # Accommodate initial 8 asteroids and splitting
 
 # Game clock
 clock = pygame.time.Clock()
@@ -214,21 +214,40 @@ def game_loop():
     input_thread = threading.Thread(target=input_processing_thread_func, daemon=True)
     input_thread.start()
 
-    # Initial asteroid spawning - using new GameEntityAsteroid
-    for _ in range(4):
-        if asteroid_semaphore.acquire(blocking=False):
-            start_x = random.randrange(0, SCREEN_WIDTH)
-            start_y = random.randrange(-150, -50) # Start above screen
-            new_asteroid = GameEntityAsteroid(position=(start_x, start_y), size_type='LG', 
-                                              all_sprites_ref=all_sprites, asteroids_group_ref=asteroids_group, 
-                                              asteroid_semaphore_ref=asteroid_semaphore, 
-                                              screen_width=SCREEN_WIDTH, screen_height=SCREEN_HEIGHT)
-            all_sprites.add(new_asteroid)
-            asteroids_group.add(new_asteroid)
-            # print(f"Initial LG asteroid spawned. Semaphore count: {asteroid_semaphore._value}") # Debug
-        else:
-            print("Error: Could not acquire semaphore for initial LG asteroid spawn.")
-            break # Stop trying if semaphore is unexpectedly unavailable
+    # Initial asteroid spawning - Phase 1: 2 LG, 3 MD, 3 SM
+    initial_asteroids_config = [
+        {'type': 'LG', 'count': 2},
+        {'type': 'MD', 'count': 3},
+        {'type': 'SM', 'count': 3}
+    ]
+
+    for config in initial_asteroids_config:
+        for _ in range(config['count']):
+            if asteroid_semaphore.acquire(blocking=False):
+                start_x = random.randrange(0, SCREEN_WIDTH)
+                # Ensure asteroids spawn off-screen or at edges, varying y for variety
+                if random.choice([True, False]): # Spawn from top/bottom or left/right
+                    # Top/Bottom spawn
+                    start_y = random.choice([-100, SCREEN_HEIGHT + 100])
+                    start_x = random.randrange(0, SCREEN_WIDTH)
+                else:
+                    # Left/Right spawn
+                    start_x = random.choice([-100, SCREEN_WIDTH + 100])
+                    start_y = random.randrange(0, SCREEN_HEIGHT)
+                
+                new_asteroid = GameEntityAsteroid(position=(start_x, start_y), size_type=config['type'], 
+                                                  all_sprites_ref=all_sprites, asteroids_group_ref=asteroids_group, 
+                                                  asteroid_semaphore_ref=asteroid_semaphore, 
+                                                  screen_width=SCREEN_WIDTH, screen_height=SCREEN_HEIGHT)
+                all_sprites.add(new_asteroid)
+                asteroids_group.add(new_asteroid)
+                # print(f"Initial {config['type']} Asteroid created. Semaphore count: {asteroid_semaphore._value if hasattr(asteroid_semaphore, '_value') else 'N/A'}")
+            else:
+                print(f"Could not acquire semaphore for initial {config['type']} asteroid. Stopping initial spawn.")
+                break # Stop this type if semaphore runs out
+        else: # Continue to next type only if inner loop completed without break
+            continue
+        break # Break outer loop if inner loop brokely unavailable
 
 
 
@@ -269,6 +288,24 @@ def game_loop():
             # Update all sprites (player, bullets, asteroids)
             all_sprites.update() 
             # asteroids_group.update() is implicitly called by all_sprites.update() if asteroids are in all_sprites
+
+            # --- Collision Detection ---
+            # Bullet-Asteroid collisions
+            # The first True removes bullets, the False means asteroids are handled manually
+            # hit_dict will have: {bullet_that_hit: [list_of_asteroids_it_hit]}
+            hit_dict = pygame.sprite.groupcollide(bullets_group, asteroids_group, True, False) 
+            
+            for bullet_that_hit, asteroids_collided_with_this_bullet in hit_dict.items():
+                for asteroid_hit in asteroids_collided_with_this_bullet:
+                    if asteroid_hit.alive(): # Check if asteroid hasn't been killed by another bullet in same frame
+                        score += asteroid_hit.properties['score'] 
+                        asteroid_hit.kill_asteroid(spawn_children=True) 
+                        # print(f"Score: {score}") # Debug score
+
+            # Player-Asteroid collisions (Placeholder for later)
+            # if pygame.sprite.spritecollide(player, asteroids_group, False, pygame.sprite.collide_circle):
+            #     print("Player hit an asteroid!")
+            #     # running = False # Example: end game
 
             # Spawn new asteroids periodically
             global asteroid_spawn_timer
