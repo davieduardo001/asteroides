@@ -2,14 +2,14 @@ import pygame
 import random
 import math
 
-# Define asteroid sizes and their properties
+# Define os tamanhos dos asteroides e suas propriedades
 ASTEROID_SIZES = {
     'LG': {'scale': 0.2, 'score': 20, 'speed_multiplier': 1.0, 'radius': 10},
     'MD': {'scale': 0.1, 'score': 50, 'speed_multiplier': 1.3, 'radius': 5},
     'SM': {'scale': 0.06, 'score': 100, 'speed_multiplier': 1.6, 'radius': 3}
 }
 
-# Global variable to store the loaded asteroid image to avoid reloading
+# Variável global para armazenar a imagem do asteroide carregada para evitar recarregamento
 _asteroid_original_image = None
 
 def load_asteroid_image():
@@ -19,7 +19,7 @@ def load_asteroid_image():
             _asteroid_original_image = pygame.image.load('static/images/asteroid.png').convert_alpha()
         except pygame.error as e:
             print(f"Error loading asteroid image: {e}")
-            # Create a fallback circular surface if image fails to load
+            # Cria uma superfície circular de fallback se a imagem falhar ao carregar
             _asteroid_original_image = pygame.Surface((100, 100), pygame.SRCALPHA)
             pygame.draw.circle(_asteroid_original_image, (128, 128, 128), (50, 50), 50)
     return _asteroid_original_image
@@ -30,24 +30,24 @@ class Asteroid(pygame.sprite.Sprite):
         
         self.size_type = size_type
         self.properties = ASTEROID_SIZES[size_type]
-        self.original_image = load_asteroid_image() # Load base image (or get from cache)
+        self.original_image = load_asteroid_image() # Carrega a imagem base (ou obtém do cache)
         
-        # Scale image
+        # Redimensiona a imagem
         scaled_width = int(self.original_image.get_width() * self.properties['scale'])
         scaled_height = int(self.original_image.get_height() * self.properties['scale'])
-        self.base_image = pygame.transform.scale(self.original_image, (scaled_width, scaled_height)) # Store the scaled image before rotation
-        self.image = self.base_image.copy() # Initial image is a copy of the base image
+        self.base_image = pygame.transform.scale(self.original_image, (scaled_width, scaled_height)) # Armazena a imagem redimensionada antes da rotação
+        self.image = self.base_image.copy() # A imagem inicial é uma cópia da imagem base
         self.rect = self.image.get_rect(center=position)
-        self.radius = self.properties['radius'] # For collision detection
+        self.radius = self.properties['radius'] # Para detecção de colisão
 
-        # Rotation attributes
-        self.angle = random.uniform(0, 360) # Visual rotation angle
-        self.rotation_speed = random.uniform(-2.5, 2.5) # Degrees per frame
-        while -0.5 < self.rotation_speed < 0.5: # Ensure it's not too slow or static
+        # Atributos de rotação
+        self.angle = random.uniform(0, 360) # Ângulo de rotação visual
+        self.rotation_speed = random.uniform(-2.5, 2.5) # Graus por quadro
+        while -0.5 < self.rotation_speed < 0.5: # Garante que não seja muito lento ou estático
             self.rotation_speed = random.uniform(-2.5, 2.5)
 
-        # Movement
-        movement_angle_deg = random.uniform(0, 360) # Angle for initial movement direction
+        # Movimento
+        movement_angle_deg = random.uniform(0, 360) # Ângulo para a direção inicial do movimento
         movement_angle_rad = math.radians(movement_angle_deg)
         base_speed = random.uniform(1, 2.5) * self.properties['speed_multiplier']
         self.vx = base_speed * math.cos(movement_angle_rad)
@@ -60,40 +60,40 @@ class Asteroid(pygame.sprite.Sprite):
         self.SCREEN_HEIGHT = screen_height
 
     def update(self):
-        # Rotation
+        # Rotação
         self.angle = (self.angle + self.rotation_speed) % 360
         self.image = pygame.transform.rotate(self.base_image, self.angle)
         self.rect = self.image.get_rect(center=self.rect.center)
 
-        # Movement
+        # Movimento
         self.rect.x += self.vx
         self.rect.y += self.vy
 
-        # Screen wrapping (simple version for now)
+        # Envelopamento de tela (versão simples por enquanto)
         if self.rect.left > self.SCREEN_WIDTH:
             self.rect.right = 0
         elif self.rect.right < 0:
             self.rect.left = self.SCREEN_WIDTH
         
         if self.rect.top > self.SCREEN_HEIGHT:
-            # Instead of wrapping, if it goes off bottom, it should be destroyed and release semaphore
+            # Em vez de envelopar, se sair pela parte inferior, deve ser destruído e liberar o semáforo
             self.kill_asteroid(spawn_children=False)
         elif self.rect.bottom < 0:
-            # If it goes off top, also destroy and release (less common with initial spawn)
+            # Se sair pelo topo, também destrói e libera (menos comum com o spawn inicial)
             self.kill_asteroid(spawn_children=False)
 
     def kill_asteroid(self, spawn_children=True):
-        # Placeholder for breaking into smaller asteroids
+        # Espaço reservado para quebrar em asteroides menores
         if spawn_children:
             if self.size_type == 'LG':
-                self._spawn_children('MD', 2) # Spawn 2 medium asteroids
+                self._spawn_children('MD', 2) # Gera 2 asteroides médios
             elif self.size_type == 'MD':
-                self._spawn_children('SM', 4) # Spawn 4 small asteroids
-            # SM asteroids do not spawn children
+                self._spawn_children('SM', 4) # Gera 4 asteroides pequenos
+            # Asteroides SM não geram filhos
         
-        self.kill() # Remove from sprite groups
+        self.kill() # Remove dos grupos de sprites
         self.asteroid_semaphore_ref.release()
-        # print(f"Asteroid ({self.size_type}) killed. Semaphore released. Count: {self.asteroid_semaphore_ref._value}")
+        # print(f"Asteroide ({self.size_type}) destruído. Semáforo liberado. Contagem: {self.asteroid_semaphore_ref._value}")
 
     def _spawn_children(self, child_size_type, count):
         for _ in range(count):
@@ -105,10 +105,10 @@ class Asteroid(pygame.sprite.Sprite):
                 self.all_sprites_ref.add(child_asteroid)
                 self.asteroids_group_ref.add(child_asteroid)
             else:
-                # print(f"Could not acquire semaphore for child asteroid ({child_size_type})")
-                break # Stop trying to spawn more children if semaphore limit is hit
+                # print(f"Não foi possível adquirir semáforo para asteroide filho ({child_size_type})")
+                break # Para de tentar gerar mais filhos se o limite do semáforo for atingido
 
-# Example of how you might call this (for testing, not for final game loop)
+# Exemplo de como você pode chamar isso (para teste, não para o loop final do jogo)
 if __name__ == '__main__':
     pygame.init()
     screen_width_test, screen_height_test = 800, 600
@@ -117,16 +117,16 @@ if __name__ == '__main__':
     
     all_sprites = pygame.sprite.Group()
     asteroids = pygame.sprite.Group()
-    # Dummy semaphore for testing
+    # Semáforo fictício para teste
     import threading
     test_semaphore = threading.Semaphore(10) 
 
-    # Try loading the image
+    # Tenta carregar a imagem
     img = load_asteroid_image()
     if img:
         print("Asteroid image loaded successfully for testing.")
 
-    # Create a large asteroid
+    # Cria um asteroide grande
     if test_semaphore.acquire(blocking=False):
         asteroid_lg = Asteroid((screen_width_test // 2, screen_height_test // 2), 'LG', all_sprites, asteroids, test_semaphore, screen_width_test, screen_height_test)
         all_sprites.add(asteroid_lg)
