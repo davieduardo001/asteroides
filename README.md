@@ -1,61 +1,74 @@
 # Asteroides
 
-Este é um jogo de Asteroides clássico desenvolvido em Python usando a biblioteca Pygame.
+## O que é o jogo
 
-## Funcionalidades Atuais
+Este é um jogo clássico de Asteroides, recriado em Python utilizando a biblioteca Pygame. O jogador controla uma nave espacial que deve desviar e destruir asteroides para sobreviver e marcar pontos. O jogo está em desenvolvimento, com funcionalidades sendo adicionadas e aprimoradas progressivamente.
 
-- **Nave do Jogador:** Controlada pelo teclado, a nave pode rotacionar para a esquerda e direita (teclas de seta) e aplicar impulso para frente (tecla de seta para cima).
-- **Movimentação:** A nave possui velocidade, atrito (drag) e velocidade máxima.
-- **Rotação da Nave:** A imagem da nave é rotacionada dinamicamente de acordo com sua orientação.
-- **Loop de Tela (Screen Wrapping):** Tanto a nave do jogador quanto os asteroides reaparecem no lado oposto da tela ao saírem dos limites.
-- **Gráficos:** Utiliza imagens customizadas para o fundo do jogo e para a nave do jogador, com fallback para formas simples caso as imagens não carreguem.
-- **Asteroides (Temporariamente Desabilitados):** O jogo inclui uma classe para asteroides que aparecem em tamanhos e velocidades aleatórias, movendo-se pela tela. Esta funcionalidade está temporariamente desabilitada para focar em outros aspectos do desenvolvimento.
-- Disparo
-- Futuro criação de asteroides
+Funcionalidades principais incluem:
+- Controle da nave espacial com rotação e propulsão.
+- Disparo de projéteis.
+- Geração inicial e periódica de asteroides de diferentes tamanhos.
+- Detecção de colisão entre projéteis e asteroides, e entre a nave e asteroides.
+- Sistema de pontuação básico.
+- Efeitos de "screen wrapping" para entidades que saem da tela.
 
-## Arquitetura e Concorrência
+## Como executar
 
-O jogo utiliza mecanismos de concorrência para gerenciar tarefas de forma eficiente e responsiva:
+1.  **Pré-requisitos:** Certifique-se de ter Python 3 e Pygame instalados em seu sistema.
+    *   Pygame pode ser instalado via pip: `pip install pygame`
+2.  **Obtenha o código:** Clone este repositório ou baixe os arquivos do projeto.
+3.  **Navegue até o diretório:** Abra um terminal ou prompt de comando e navegue até a pasta raiz do projeto (`asteroides`).
+4.  **Execute o jogo:** Rode o script principal com o comando:
+    ```bash
+    python3 asteroids.py
+    ```
+    (Ou `python asteroids.py` dependendo da sua configuração do Python).
 
-### 1. Thread de Processamento de Entrada (`src/input_handler.py`)
+**Controles Básicos:**
+- **Setas Esquerda/Direita:** Rotacionar a nave.
+- **Seta Cima:** Aplicar propulsão (acelerar).
+- **Barra de Espaço:** Disparar.
+- **Tecla P:** Pausar/Retomar o jogo (funcionalidade básica).
+- **Tecla ESC:** Sair do jogo.
 
-- **Propósito:** Isolar o processamento de entrada do jogador (teclado) do loop principal do jogo para evitar bloqueios e manter a responsividade.
-- **Funcionamento:**
-    - Uma thread dedicada é iniciada para monitorar uma fila de entrada (`input_queue`).
-    - O loop principal do jogo captura os eventos de teclado do Pygame e os adiciona a esta fila.
-    - A thread de entrada consome os eventos da fila e atualiza um dicionário de estado compartilhado (`shared_input_state`), que reflete as ações atuais do jogador (ex: rotacionar, acelerar, atirar).
-    - Para garantir a segurança no acesso concorrente ao `shared_input_state` (escrita pela thread de entrada e leitura pelo loop principal), um `threading.Lock` (`input_lock`) é utilizado.
-    - Um `threading.Event` (`stop_input_thread_event`) é usado para sinalizar à thread de entrada que ela deve encerrar suas atividades quando o jogo está fechando.
+# Organização
 
-### 2. Semáforo para Gerenciamento de Asteroides (`asteroids.py` e `src/game_entities.py`)
+O projeto está estruturado de forma modular para facilitar o desenvolvimento, manutenção e entendimento do código. A lógica principal do jogo reside em `asteroids.py`, enquanto as diferentes entidades e sistemas são gerenciados em módulos separados dentro da pasta `src/`.
 
-- **Propósito:** Controlar o número máximo de asteroides ativos simultaneamente na tela, prevenindo sobrecarga de processamento e mantendo o balanceamento do jogo.
-- **Funcionamento:**
-    - Um `threading.Semaphore` (`asteroid_semaphore`) é inicializado com um valor que define o limite máximo de asteroides.
-    - **Criação de Asteroides:** Antes de um novo asteroide ser criado (seja no início do jogo ou quando um asteroide maior se divide), o jogo tenta adquirir o semáforo (`asteroid_semaphore.acquire()`).
-        - Se o semáforo for adquirido com sucesso (ou seja, o número de asteroides ativos é menor que o limite), o novo asteroide é instanciado e adicionado ao jogo.
-        - Se o semáforo não puder ser adquirido (limite atingido), o novo asteroide não é criado naquele momento.
-    - **Destruição de Asteroides:** Quando um asteroide é destruído (por um tiro ou ao sair da tela), ele libera o semáforo (`asteroid_semaphore.release()`), decrementando a contagem de asteroides ativos e permitindo que um novo asteroide possa ser criado.
+*   **`asteroids.py`**: O arquivo principal que inicializa o Pygame, configura a tela, gerencia o loop principal do jogo, o estado do jogo (como pontuação) e coordena as interações entre os diferentes módulos.
+*   **`src/`**: Contém os módulos especializados:
+    *   **`spaceship.py`**: Define a classe `Player` (a nave espacial), incluindo sua lógica de movimento, rotação e disparo.
+    *   **`bullet.py`**: Define a classe `Bullet`, responsável pela lógica dos projéteis disparados pela nave.
+    *   **`game_entities.py`**: Define a classe `Asteroid`, incluindo suas propriedades (tamanho, velocidade, pontuação), comportamento de divisão e lógica de movimento.
+    *   **`asteroid_manager.py`**: Gerencia a criação inicial e periódica de asteroides, utilizando um semáforo para controlar o número máximo de asteroides em tela.
+    *   **`collision_handler.py`**: Centraliza a lógica de detecção e tratamento de colisões (projétil-asteroide e jogador-asteroide).
+    *   **`input_handler.py`**: Gerencia a entrada do teclado de forma assíncrona usando uma thread dedicada, para não bloquear o loop principal do jogo.
+*   **`static/images/`**: Armazena as imagens utilizadas no jogo (nave, asteroides, fundo).
 
-Esta abordagem ajuda a manter o jogo fluido e a gerenciar recursos de forma eficaz.
+Esta arquitetura visa separar as responsabilidades, tornando o código mais limpo e escalável.
 
-## Como Jogar (Controles)
+# Threads
 
-- **Seta para Esquerda:** Rotacionar a nave para a esquerda.
-- **Seta para Direita:** Rotacionar a nave para a direita.
-- **Seta para Cima:** Aplicar impulso para frente.
+O jogo utiliza threads para gerenciar certas operações de forma concorrente, melhorando a responsividade e a organização.
 
-## Como Executar
+*   **Thread de Tratamento de Entrada (`src/input_handler.py`)**
+    - **Propósito:** Isolar o processamento de entrada do jogador (teclado) do loop principal do jogo. Isso evita que o jogo congele ou perca responsividade enquanto aguarda eventos de entrada.
+    - **Funcionamento:** Uma thread dedicada é iniciada e monitora uma fila (`input_queue`). Eventos de teclado capturados no loop principal do jogo (em `asteroids.py`) são colocados nessa fila. A thread de entrada consome os eventos da fila e atualiza um estado compartilhado (`shared_input_state`) que reflete as ações atuais do jogador (ex: rotacionar, acelerar, atirar). Um `threading.Lock` (`input_lock`) é usado para garantir acesso seguro a esse estado compartilhado. Um `threading.Event` (`stop_input_thread_event`) sinaliza o término da thread quando o jogo fecha.
 
-1.  Certifique-se de ter Python e Pygame instalados.
-2.  Clone este repositório (ou baixe os arquivos).
-3.  Navegue até o diretório do projeto no terminal.
-4.  Execute o jogo com o comando: `python asteroides.py`
+*   **Lógica da Nave Espacial e Threads**
+    - É importante notar que a lógica principal da nave espacial (movimento, atualização de estado, renderização) **não** roda em uma thread separada. Ela é executada como parte do loop principal do jogo em `asteroids.py`, dentro do método `update()` da classe `Player` (definida em `src/spaceship.py`).
+    - A interação com threads ocorre através do `input_handler`: a nave lê o `shared_input_state` (que é atualizado pela thread de entrada) para determinar as ações a serem tomadas.
 
-## Próximos Passos (Exemplos)
+# Semáforo
 
-- Reativar e aprimorar os asteroides.
-- Implementar sistema de tiros para a nave.
-- Adicionar colisões entre nave, tiros e asteroides.
-- Sistema de pontuação e vidas.
-- Menus e telas de jogo (início, game over).
+Um semáforo é utilizado para controlar o número de asteroides na tela, evitando sobrecarga e mantendo o jogo balanceado.
+
+*   **Semáforo para Lógica de Asteroides (`src/asteroid_manager.py` e `src/game_entities.py`)**
+    - **Propósito:** Limitar o número máximo de instâncias de asteroides que podem existir simultaneamente no jogo.
+    - **Funcionamento:** Um `threading.Semaphore` (chamado `asteroid_semaphore` em `asteroids.py` e passado como referência) é inicializado com um valor que representa o limite desejado. 
+        - Ao tentar criar um novo asteroide (seja no início, periodicamente, ou quando um asteroide maior se divide em menores), o sistema tenta adquirir o semáforo (`acquire()`). Se bem-sucedido (a contagem atual está abaixo do limite), o asteroide é criado. Caso contrário, a criação é adiada ou ignorada.
+        - Quando um asteroide é destruído, ele libera o semáforo (`release()`), permitindo que um novo possa ser criado.
+
+# Fim
+
+Este projeto é uma implementação do clássico jogo Asteroides com foco na modularidade do código e no uso de conceitos de concorrência para gerenciamento de entrada e entidades do jogo. A separação de responsabilidades em diferentes módulos e o uso de threads e semáforos contribuem para um código mais organizado e um jogo mais responsivo. O desenvolvimento continua, com planos para adicionar mais funcionalidades e refinar as existentes.
