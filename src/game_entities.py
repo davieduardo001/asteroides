@@ -38,7 +38,7 @@ class Asteroid(pygame.sprite.Sprite):
         self.base_image = pygame.transform.scale(self.original_image, (scaled_width, scaled_height)) # Armazena a imagem redimensionada antes da rotação
         self.image = self.base_image.copy() # A imagem inicial é uma cópia da imagem base
         self.rect = self.image.get_rect(center=position)
-        self.radius = self.properties['radius'] # Para detecção de colisão
+        self.radius = self.properties['radius'] * 0.8 # Para detecção de colisão (reduzido para 80%)
 
         # Atributos de rotação
         self.angle = random.uniform(0, 360) # Ângulo de rotação visual
