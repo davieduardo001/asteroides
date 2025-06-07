@@ -18,7 +18,7 @@ def load_asteroid_image():
         try:
             _asteroid_original_image = pygame.image.load('static/images/asteroid.png').convert_alpha()
         except pygame.error as e:
-            print(f"Error loading asteroid image: {e}")
+            print(f"Erro ao carregar imagem do asteroide: {e}")
             # Cria uma superfície circular de fallback se a imagem falhar ao carregar
             _asteroid_original_image = pygame.Surface((100, 100), pygame.SRCALPHA)
             pygame.draw.circle(_asteroid_original_image, (128, 128, 128), (50, 50), 50)
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     # Tenta carregar a imagem
     img = load_asteroid_image()
     if img:
-        print("Asteroid image loaded successfully for testing.")
+        print("Imagem do asteroide carregada com sucesso para teste.")
 
     # Cria um asteroide grande
     if test_semaphore.acquire(blocking=False):

@@ -2,30 +2,30 @@ import pygame
 
 def handle_bullet_asteroid_collisions(bullets_group, asteroids_group, score_ref):
     """
-    Handles collisions between bullets and asteroids.
-    Updates the score.
-    Returns the updated score.
+    Lida com colisões entre projéteis e asteroides.
+    Atualiza a pontuação.
+    Retorna a pontuação atualizada.
     """
-    # The first True removes bullets, False means asteroids are handled manually (e.g., for splitting)
+    # O primeiro True remove os projéteis, False significa que os asteroides são tratados manualmente (ex: para divisão)
     hit_dict = pygame.sprite.groupcollide(bullets_group, asteroids_group, True, False)
     
-    current_score = score_ref # Use a local variable to accumulate score changes in this frame
+    current_score = score_ref # Usa uma variável local para acumular alterações de pontuação neste quadro
     for bullet_hit, asteroids_hit_list in hit_dict.items():
         for asteroid_hit in asteroids_hit_list:
-            if asteroid_hit.alive(): # Check if asteroid is still alive (not killed by another bullet in same frame)
-                # Assuming asteroid_hit.properties['score'] exists from game_entities.Asteroid
-                # If not, we might need to pass ASTEROID_SIZES or get score differently
-                current_score += asteroid_hit.properties.get('score', 10) # Default score if not found
+            if asteroid_hit.alive(): # Verifica se o asteroide ainda está vivo (não foi destruído por outro projétil no mesmo quadro)
+                # Assumindo que asteroid_hit.properties['score'] existe em game_entities.Asteroid
+                # Caso contrário, podemos precisar passar ASTEROID_SIZES ou obter a pontuação de forma diferente
+                current_score += asteroid_hit.properties.get('score', 10) # Pontuação padrão se não encontrada
                 asteroid_hit.kill_asteroid(spawn_children=True)
     return current_score
 
 def handle_player_asteroid_collisions(player, asteroids_group):
     """
-    Handles collisions between the player and asteroids.
-    Returns True if the game should end, False otherwise.
+    Lida com colisões entre o jogador e asteroides.
+    Retorna True se o jogo deve terminar, False caso contrário.
     """
-    if player.alive(): # Only check collision if player is alive
+    if player.alive(): # Só verifica a colisão se o jogador estiver vivo
         if pygame.sprite.spritecollide(player, asteroids_group, False, pygame.sprite.collide_circle):
             print("\033[91mGAME OVER! JOGADOR ATINGIU UM ASTEROIDE!\033[0m")
-            return True # Game should end
-    return False # Game continues
+            return True # O jogo deve terminar
+    return False # O jogo continua

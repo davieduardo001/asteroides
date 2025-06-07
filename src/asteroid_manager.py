@@ -2,8 +2,8 @@ import pygame
 import random
 from src.game_entities import Asteroid as GameEntityAsteroid
 
-# This would be passed from asteroids.py or defined here if constant
-# For now, let's assume they are passed to functions.
+# Isso seria passado de asteroids.py ou definido aqui se fosse constante
+# Por enquanto, vamos assumir que são passados para as funções.
 # SCREEN_WIDTH, SCREEN_HEIGHT
 # asteroid_semaphore
 # all_sprites, asteroids_group
@@ -13,7 +13,7 @@ asteroid_spawn_timer = 0
 
 def setup_initial_asteroids(all_sprites, asteroids_group, asteroid_semaphore, screen_width, screen_height):
     """
-    Generates the initial set of asteroids for the game.
+    Gera o conjunto inicial de asteroides para o jogo.
     """
     initial_asteroids_config = [
         {'type': 'LG', 'count': 2},
@@ -39,7 +39,7 @@ def setup_initial_asteroids(all_sprites, asteroids_group, asteroid_semaphore, sc
                 all_sprites.add(new_asteroid)
                 asteroids_group.add(new_asteroid)
             else:
-                print(f"Could not acquire semaphore for initial asteroid {config['type']}. Stopping initial generation.")
+                print(f"Não foi possível adquirir o semáforo para o asteroide inicial {config['type']}. Interrompendo a geração inicial.")
                 break 
         else: 
             continue
@@ -47,15 +47,15 @@ def setup_initial_asteroids(all_sprites, asteroids_group, asteroid_semaphore, sc
 
 def spawn_periodic_asteroids(all_sprites, asteroids_group, asteroid_semaphore, screen_width, screen_height):
     """
-    Periodically spawns new asteroids during gameplay.
-    Manages its own timer.
+    Gera periodicamente novos asteroides durante o jogo.
+    Gerencia seu próprio temporizador.
     """
     global asteroid_spawn_timer
     asteroid_spawn_timer += 1
     if asteroid_spawn_timer >= ASTEROID_SPAWN_RATE:
         asteroid_spawn_timer = 0
         if asteroid_semaphore.acquire(blocking=False):
-            new_asteroid_type = 'LG' # For now, only LG as per original code's testing state
+            new_asteroid_type = 'LG' # Por enquanto, apenas LG conforme o estado de teste do código original
             
             if random.choice([True, False]):
                 start_y = random.choice([-100, screen_height + 100])
@@ -70,6 +70,6 @@ def spawn_periodic_asteroids(all_sprites, asteroids_group, asteroid_semaphore, s
                                               screen_width=screen_width, screen_height=screen_height)
             all_sprites.add(new_asteroid)
             asteroids_group.add(new_asteroid)
-        # else:
-            # print("Semaphore full, no new periodic asteroid created.")
-            # pass # Semaphore full
+        # senão:
+            # print("Semáforo cheio, nenhum novo asteroide periódico criado.")
+            # pass # Semáforo cheio

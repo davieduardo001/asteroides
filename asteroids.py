@@ -102,7 +102,7 @@ class Player(pygame.sprite.Sprite):
         if is_thrusting:
             # Ângulo 0 é CIMA. Ângulo positivo rotaciona anti-horário.
             # Componentes do vetor de propulsão:
-            # dx = sin(-angulo_rad), dy = -cos(-angulo_rad)
+            # dx = sen(-angulo_rad), dy = -cos(-angulo_rad)
             angle_rad = math.radians(self.angle)
             self.vx += self.thrust_power * math.sin(-angle_rad) 
             self.vy += self.thrust_power * -math.cos(-angle_rad)
@@ -185,7 +185,7 @@ class Bullet(pygame.sprite.Sprite):
 # --- Variáveis do Jogo (a serem expandidas) ---
 score = 0
 game_paused = False
-# asteroid_spawn_timer and ASTEROID_SPAWN_RATE are now in asteroid_manager.py
+# asteroid_spawn_timer e ASTEROID_SPAWN_RATE estão agora em asteroid_manager.py
 
 
 
@@ -199,24 +199,25 @@ except Exception as e:
 # --- Loop Principal do Jogo ---
 def game_loop():
     running = True
-    global score # Allow modification of global score
+    global score # Permite a modificação da pontuação global
 
-    # Initialize sprite groups first
+    # Inicializa os grupos de sprites primeiro
     all_sprites = pygame.sprite.Group()
-    asteroids_group = pygame.sprite.Group() # Asteroids currently disabled
+    asteroids_group = pygame.sprite.Group() # Asteroides atualmente desabilitados
     bullets_group = pygame.sprite.Group()
 
-    # Create player instance, passing sprite group references
+    # Cria instância do jogador, passando referências dos grupos de sprites
     player = Player(all_sprites, bullets_group)
     all_sprites.add(player)
 
-    # Start the input processing thread
+    # Inicia a thread de processamento de entrada
     input_thread = threading.Thread(target=input_processing_thread_func, daemon=True)
     input_thread.start()
 
-    # Setup initial asteroids using the asteroid_manager
+    # Configura asteroides iniciais usando o gerenciador de asteroides
     setup_initial_asteroids(all_sprites, asteroids_group, asteroid_semaphore, SCREEN_WIDTH, SCREEN_HEIGHT)
 
+    # Loop principal do jogo
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -224,11 +225,11 @@ def game_loop():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False # Sair do jogo com ESC
-                elif event.key == pygame.K_p: # Placeholder for pause
+                elif event.key == pygame.K_p: # Placeholder para pausa
                     global game_paused
                     game_paused = not game_paused
                     print(f"Jogo pausado: {game_paused}")
-                # Player input commands to queue
+                # Comandos de entrada do jogador para a fila
                 elif event.key == pygame.K_LEFT:
                     input_queue.put(('rotate_left', True))
                 elif event.key == pygame.K_RIGHT:
@@ -245,43 +246,43 @@ def game_loop():
                     input_queue.put(('rotate_right', False))
                 elif event.key == pygame.K_UP:
                     input_queue.put(('thrust_on', False))
-                # No KEYUP for shoot_request as it's a single event
+                # Sem KEYUP para shoot_request, pois é um evento único
 
         if not game_paused:
-            # --- Lógica do Jogo (to be added) ---
+            # --- Lógica do Jogo (a ser adicionada) ---
             # Lógica de movimento das estrelas removida, pois agora usamos uma imagem de fundo estática
             
             # Atualiza todos os sprites (jogador, projéteis, asteroides)
             all_sprites.update() 
             # asteroids_group.update() é chamado implicitamente por all_sprites.update() se os asteroides estiverem em all_sprites
 
-            # --- Detecção de Colisão (handled by collision_handler) ---
+            # --- Detecção de Colisão (tratada por collision_handler.py) ---
             score = handle_bullet_asteroid_collisions(bullets_group, asteroids_group, score)
             if handle_player_asteroid_collisions(player, asteroids_group):
-                running = False # Game over
+                running = False # Fim de jogo
 
-            # --- Geração de Asteroides (handled by asteroid_manager) ---
+            # --- Geração de Asteroides (tratada por asteroid_manager.py) ---
             spawn_periodic_asteroids(all_sprites, asteroids_group, asteroid_semaphore, SCREEN_WIDTH, SCREEN_HEIGHT)
 
         # --- Desenho ---
-        screen.fill(BLACK) # Set background to black
-        # if background_image:
-        #     screen.blit(background_image, (0,0))
-        # else:
-        #     screen.fill(DARK_BLUE) # Fallback background color
+        # screen.fill(BLACK) # Define o fundo como preto - Removido para usar imagem de fundo
+        if background_image:
+            screen.blit(background_image, (0,0))
+        else:
+            screen.fill(DARK_BLUE) # Cor de fundo alternativa
 
         # Lógica de desenho das estrelas removida
 
-        # Desenha todos os sprites (jogador)
-        all_sprites.draw(screen) # Jogador está em all_sprites
-        # asteroids_group.draw(screen) # Desenho dos asteroides desativado
+        # Desenha todos os sprites (jogador e projéteis já estão em all_sprites)
+        all_sprites.draw(screen) # Jogador e projéteis estão em all_sprites
+        asteroids_group.draw(screen) # Desenha os asteroides explicitamente
 
         # Desenha a Pontuação
         score_text_surface = score_font.render(str(score), True, WHITE)
         score_text_rect = score_text_surface.get_rect(center=(SCREEN_WIDTH // 2, 50))
         screen.blit(score_text_surface, score_text_rect)
 
-        # Draw Pause Button (placeholder)
+        # Desenha Botão de Pausa (placeholder)
         pause_button_margin = 20
         pause_button_size = 40
         pause_icon_line_length = 20
@@ -290,7 +291,7 @@ def game_loop():
 
         pause_button_rect = pygame.Rect(SCREEN_WIDTH - pause_button_size - pause_button_margin, pause_button_margin, pause_button_size, pause_button_size)
         pygame.draw.rect(screen, GREY, pause_button_rect)
-        # Pause icon (two vertical lines)
+        # Ícone de pausa (duas linhas verticais)
         line1_x = SCREEN_WIDTH - pause_button_margin - (pause_button_size // 2) - (pause_icon_spacing // 2)
         line2_x = SCREEN_WIDTH - pause_button_margin - (pause_button_size // 2) + (pause_icon_spacing // 2)
         icon_y_start = pause_button_margin + (pause_button_size - pause_icon_line_length) // 2
@@ -300,7 +301,7 @@ def game_loop():
         pygame.draw.line(screen, WHITE, (line2_x, icon_y_start), (line2_x, icon_y_end), pause_icon_line_width)
 
         if game_paused:
-            # Display Paused message
+            # Exibe mensagem de Pausado
             pause_text_surface = score_font.render("PAUSADO", True, WHITE)
             pause_text_rect = pause_text_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             screen.blit(pause_text_surface, pause_text_rect)

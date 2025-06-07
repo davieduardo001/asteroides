@@ -14,7 +14,7 @@ stop_input_thread_event = threading.Event()
 
 # Função da thread de processamento de entrada
 def input_processing_thread_func():
-    print("Input processing thread started.")
+    print("Thread de processamento de entrada iniciada.")
     while not stop_input_thread_event.is_set():
         try:
             command, key_state = input_queue.get(timeout=0.1) # Timeout para permitir a verificação de stop_event
@@ -33,6 +33,6 @@ def input_processing_thread_func():
         except queue.Empty:
             continue # Sem entrada, volta ao loop e verifica stop_event
         except Exception as e:
-            print(f"Error in input thread: {e}") # Tratamento básico de erro
+            print(f"Erro na thread de entrada: {e}") # Tratamento básico de erro
             break # Sai da thread em erro inesperado
-    print("Input processing thread stopped.")
+    print("Thread de processamento de entrada parada.")
