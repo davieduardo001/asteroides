@@ -59,6 +59,3 @@ Esta abordagem ajuda a manter o jogo fluido e a gerenciar recursos de forma efic
 - Adicionar colisões entre nave, tiros e asteroides.
 - Sistema de pontuação e vidas.
 - Menus e telas de jogo (início, game over).
-
----
-*Este README foi gerado por Cascade, seu assistente de codificação AI.*
