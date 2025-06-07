@@ -5,6 +5,8 @@ import math
 import threading
 from src.input_handler import input_queue, shared_input_state, input_lock, stop_input_thread_event, input_processing_thread_func
 from src.game_entities import Asteroid as GameEntityAsteroid # Alias para evitar confusão se alguma variável local 'Asteroid' existir
+from src.asteroid_manager import setup_initial_asteroids, spawn_periodic_asteroids, ASTEROID_SPAWN_RATE
+from src.collision_handler import handle_bullet_asteroid_collisions, handle_player_asteroid_collisions
 
 
 # Inicializa o Pygame
@@ -183,8 +185,7 @@ class Bullet(pygame.sprite.Sprite):
 # --- Variáveis do Jogo (a serem expandidas) ---
 score = 0
 game_paused = False
-asteroid_spawn_timer = 0
-ASTEROID_SPAWN_RATE = 60 # Gera um novo asteroide (se houver espaço) a cada segundo a 60 FPS
+# asteroid_spawn_timer and ASTEROID_SPAWN_RATE are now in asteroid_manager.py
 
 
 
@@ -213,42 +214,8 @@ def game_loop():
     input_thread = threading.Thread(target=input_processing_thread_func, daemon=True)
     input_thread.start()
 
-    # Geração inicial de asteroides - Fase 1: 2 LG, 3 MD, 3 SM
-    initial_asteroids_config = [
-        {'type': 'LG', 'count': 2},
-        {'type': 'MD', 'count': 3},
-        {'type': 'SM', 'count': 3}
-    ]
-
-    for config in initial_asteroids_config:
-        for _ in range(config['count']):
-            if asteroid_semaphore.acquire(blocking=False):
-                start_x = random.randrange(0, SCREEN_WIDTH)
-                # Garante que os asteroides surjam fora da tela ou nas bordas, variando y para diversidade
-                if random.choice([True, False]): # Surge de cima/baixo ou esquerda/direita
-                    # Surgimento de cima/baixo
-                    start_y = random.choice([-100, SCREEN_HEIGHT + 100])
-                    start_x = random.randrange(0, SCREEN_WIDTH)
-                else:
-                    # Surgimento da esquerda/direita
-                    start_x = random.choice([-100, SCREEN_WIDTH + 100])
-                    start_y = random.randrange(0, SCREEN_HEIGHT)
-                
-                new_asteroid = GameEntityAsteroid(position=(start_x, start_y), size_type=config['type'], 
-                                                  all_sprites_ref=all_sprites, asteroids_group_ref=asteroids_group, 
-                                                  asteroid_semaphore_ref=asteroid_semaphore, 
-                                                  screen_width=SCREEN_WIDTH, screen_height=SCREEN_HEIGHT)
-                all_sprites.add(new_asteroid)
-                asteroids_group.add(new_asteroid)
-                # print(f"Asteroide {config['type']} inicial criado. Contagem do semáforo: {asteroid_semaphore._value if hasattr(asteroid_semaphore, '_value') else 'N/A'}")
-            else:
-                print(f"Não foi possível adquirir semáforo para asteroide {config['type']} inicial. Parando geração inicial.")
-                break # Para este tipo se o semáforo esgotar
-        else: # Continua para o próximo tipo apenas se o loop interno completar sem interrupção
-            continue
-        break # Interrompe o loop externo se o loop interno foi interrompidoly unavailable
-
-
+    # Setup initial asteroids using the asteroid_manager
+    setup_initial_asteroids(all_sprites, asteroids_group, asteroid_semaphore, SCREEN_WIDTH, SCREEN_HEIGHT)
 
     while running:
         for event in pygame.event.get():
@@ -288,46 +255,13 @@ def game_loop():
             all_sprites.update() 
             # asteroids_group.update() é chamado implicitamente por all_sprites.update() se os asteroides estiverem em all_sprites
 
-            # --- Detecção de Colisão ---
-            # Colisões Projétil-Asteroide
-            # O primeiro True remove projéteis, o False significa que asteroides são tratados manualmente
-            # hit_dict terá: {projetil_que_acertou: [lista_de_asteroides_que_acertou]}
-            hit_dict = pygame.sprite.groupcollide(bullets_group, asteroids_group, True, False) 
-            
-            for bullet_that_hit, asteroids_collided_with_this_bullet in hit_dict.items():
-                for asteroid_hit in asteroids_collided_with_this_bullet:
-                    if asteroid_hit.alive(): # Verifica se o asteroide não foi destruído por outro projétil no mesmo frame
-                        score += asteroid_hit.properties['score'] 
-                        asteroid_hit.kill_asteroid(spawn_children=True) 
-                        # print(f"Pontuação: {score}") # Debug da pontuação
+            # --- Detecção de Colisão (handled by collision_handler) ---
+            score = handle_bullet_asteroid_collisions(bullets_group, asteroids_group, score)
+            if handle_player_asteroid_collisions(player, asteroids_group):
+                running = False # Game over
 
-            # Colisões Jogador-Asteroide
-            if pygame.sprite.spritecollide(player, asteroids_group, False, pygame.sprite.collide_circle):
-                print("\033[91mGAME OVER! JOGADOR ATINGIU UM ASTEROIDE!\033[0m")
-                running = False # Termina o jogo
-
-            # Gera novos asteroides periodicamente
-            global asteroid_spawn_timer
-            asteroid_spawn_timer += 1
-            if asteroid_spawn_timer >= ASTEROID_SPAWN_RATE:
-                asteroid_spawn_timer = 0
-                if asteroid_semaphore.acquire(blocking=False):
-                    start_x = random.choice([random.randrange(-100, -50), random.randrange(SCREEN_WIDTH + 50, SCREEN_WIDTH + 100)])
-                    start_y = random.randrange(0, SCREEN_HEIGHT)
-                    # Escolhe aleatoriamente um lado para surgir (cima, baixo, esquerda, direita)
-                    # start_x = random.randrange(0, SCREEN_WIDTH)
-                    # start_y = random.choice([random.randrange(-100, -50), random.randrange(SCREEN_HEIGHT + 50, SCREEN_HEIGHT + 100)])
-                    
-                    new_asteroid = GameEntityAsteroid(position=(start_x, start_y), size_type='LG', 
-                                                      all_sprites_ref=all_sprites, asteroids_group_ref=asteroids_group, 
-                                                      asteroid_semaphore_ref=asteroid_semaphore, 
-                                                      screen_width=SCREEN_WIDTH, screen_height=SCREEN_HEIGHT)
-                    all_sprites.add(new_asteroid)
-                    asteroids_group.add(new_asteroid)
-                    # print(f"Asteroide periódico criado. Contagem do semáforo: {asteroid_semaphore._value}") # Debug
-                # else:
-                    # print(f"Máximo de asteroides (LG) alcançado, não gerando. Contagem do semáforo: {asteroid_semaphore._value}") # Debug
-
+            # --- Geração de Asteroides (handled by asteroid_manager) ---
+            spawn_periodic_asteroids(all_sprites, asteroids_group, asteroid_semaphore, SCREEN_WIDTH, SCREEN_HEIGHT)
 
         # --- Desenho ---
         screen.fill(BLACK) # Set background to black
@@ -341,8 +275,6 @@ def game_loop():
         # Desenha todos os sprites (jogador)
         all_sprites.draw(screen) # Jogador está em all_sprites
         # asteroids_group.draw(screen) # Desenho dos asteroides desativado
-
-
 
         # Desenha a Pontuação
         score_text_surface = score_font.render(str(score), True, WHITE)
@@ -366,7 +298,6 @@ def game_loop():
 
         pygame.draw.line(screen, WHITE, (line1_x, icon_y_start), (line1_x, icon_y_end), pause_icon_line_width)
         pygame.draw.line(screen, WHITE, (line2_x, icon_y_start), (line2_x, icon_y_end), pause_icon_line_width)
-
 
         if game_paused:
             # Display Paused message
