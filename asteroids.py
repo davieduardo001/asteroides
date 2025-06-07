@@ -301,10 +301,10 @@ def game_loop():
                         asteroid_hit.kill_asteroid(spawn_children=True) 
                         # print(f"Pontuação: {score}") # Debug da pontuação
 
-            # Colisões Jogador-Asteroide (Espaço reservado para depois)
-            # if pygame.sprite.spritecollide(player, asteroids_group, False, pygame.sprite.collide_circle):
-            #     print("Jogador atingiu um asteroide!")
-            #     # running = False # Exemplo: fim de jogo
+            # Colisões Jogador-Asteroide
+            if pygame.sprite.spritecollide(player, asteroids_group, False, pygame.sprite.collide_circle):
+                print("\033[91mGAME OVER! JOGADOR ATINGIU UM ASTEROIDE!\033[0m")
+                running = False # Termina o jogo
 
             # Gera novos asteroides periodicamente
             global asteroid_spawn_timer
