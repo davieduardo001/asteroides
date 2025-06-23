@@ -12,6 +12,7 @@ Funcionalidades principais incluem:
 - Sistema de pontuação básico.
 - Efeitos de "screen wrapping" para entidades que saem da tela.
 
+
 ## Como executar
 
 1.  **Pré-requisitos:** Certifique-se de ter Python 3 e Pygame instalados em seu sistema.
@@ -30,6 +31,65 @@ Funcionalidades principais incluem:
 - **Barra de Espaço:** Disparar.
 - **Tecla P:** Pausar/Retomar o jogo (funcionalidade básica).
 - **Tecla ESC:** Sair do jogo.
+
+### 🚀 **How-to: Ambiente isolado com `venv`**
+
+#### 1️⃣ Crie um ambiente virtual
+
+No terminal, dentro da pasta do projeto:
+
+```bash
+python -m venv venv
+```
+
+#### 2️⃣ Ative o ambiente virtual
+
+* No **Linux/Mac**:
+
+  ```bash
+  source venv/bin/activate
+  ```
+* No **Windows**:
+
+  ```cmd
+  venv\Scripts\activate
+  ```
+
+#### 3️⃣ Atualize o `pip` (opcional, mas recomendado):
+
+```bash
+python -m pip install --upgrade pip
+```
+
+#### 4️⃣ Instale as dependências:
+
+```bash
+pip install -r requirements.txt
+```
+
+Se o arquivo `requirements.txt` não existir, você pode criar um com o seguinte conteúdo:
+
+```
+pygame>=2.0.0
+```
+
+Ou instalar diretamente:
+
+```bash
+pip install pygame
+```
+
+#### 5️⃣ Execute o jogo:
+
+```bash
+python asteroids.py
+```
+
+#### 6️⃣ (Opcional) Para sair do ambiente virtual:
+
+```bash
+deactivate
+```
 
 # Organização
 
